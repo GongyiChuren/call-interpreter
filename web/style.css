@@ -1,0 +1,146 @@
+/* Call Interpreter — minimal, dark, one screen.
+   Green accent only for "live/speaking" so the eye lands on state, not chrome. */
+
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #1c232c;
+  --line: #262d36;
+  --text: #e6edf3;
+  --dim: #8b949e;
+  --faint: #5b636d;
+  --live: #2ea043;
+  --live-dim: #1a7f37;
+  --warn: #d29922;
+  --err: #f85149;
+  --zh: #58a6ff;
+  --en: #2ea043;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; cursor: pointer; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+.wrap { max-width: 780px; margin: 0 auto; padding: 22px 18px 60px; }
+
+/* ------------------------------------------------------------------- header */
+.head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.head h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: .2px; }
+.head .spacer { flex: 1; }
+
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.on { background: var(--live); box-shadow: 0 0 0 4px rgba(46,160,67,.16); }
+.dot.mid { background: var(--warn); }
+.dot.bad { background: var(--err); }
+
+.status { font-size: 13px; color: var(--dim); }
+
+/* -------------------------------------------------------------------- cards */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--faint); margin: 0 0 12px; font-weight: 600;
+}
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row + .row { margin-top: 10px; }
+.grow { flex: 1; min-width: 160px; }
+
+label.f { display: block; font-size: 12px; color: var(--dim); margin-bottom: 5px; }
+
+input[type="text"], input[type="password"], select, textarea {
+  width: 100%; padding: 9px 11px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  font: inherit; font-size: 14px; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: #3a4551; }
+textarea { resize: vertical; min-height: 62px; }
+
+.btn {
+  padding: 9px 15px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font-size: 14px;
+  transition: .12s;
+}
+.btn:hover:not(:disabled) { background: #232b35; }
+.btn.primary { background: var(--live-dim); border-color: var(--live-dim); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--live); }
+.btn.danger { background: #6e2020; border-color: #6e2020; color: #fff; }
+.btn.danger:hover:not(:disabled) { background: #8b2626; }
+.btn.wide { width: 100%; }
+.btn.active { background: var(--live-dim); border-color: var(--live); color: #fff; }
+
+/* ------------------------------------------------------------------ talkers */
+.talkers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 620px) { .talkers { grid-template-columns: 1fr; } }
+
+.talker {
+  border: 1px solid var(--line); border-radius: 10px; padding: 13px;
+  background: var(--panel-2); transition: .15s;
+}
+.talker.live { border-color: var(--live); box-shadow: 0 0 0 1px rgba(46,160,67,.3); }
+.talker .who { font-size: 13px; color: var(--dim); margin-bottom: 9px; display: flex; align-items: center; gap: 7px; }
+.talker .who b { color: var(--text); font-weight: 600; font-size: 14px; }
+
+.meter { height: 4px; border-radius: 2px; background: #232b35; overflow: hidden; margin-top: 9px; }
+.meter i { display: block; height: 100%; width: 0; background: var(--live); transition: width .1s linear; }
+.meter.idle i { background: var(--faint); }
+
+/* ------------------------------------------------------------------ captions */
+.cap { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+.cap:empty::after {
+  content: "接通后，这里显示双方说的话。";
+  color: var(--faint); font-size: 13px;
+}
+.cap .item { border-left: 2px solid var(--line); padding: 2px 0 2px 11px; }
+.cap .item.z { border-color: var(--zh); }
+.cap .item.e { border-color: var(--en); }
+.cap .src { color: var(--dim); font-size: 13px; margin-bottom: 2px; word-break: break-word; }
+.cap .dst { font-size: 15px; word-break: break-word; }
+.cap .tag { font-size: 11px; color: var(--faint); margin-bottom: 3px; letter-spacing: .04em; }
+
+/* -------------------------------------------------------------------- misc */
+.hint { font-size: 12.5px; color: var(--faint); line-height: 1.6; }
+.hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+.badge {
+  display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: var(--panel-2); color: var(--dim); border: 1px solid var(--line);
+}
+.badge.ok { color: var(--live); border-color: rgba(46,160,67,.4); }
+.badge.err { color: var(--err); border-color: rgba(248,81,73,.4); }
+
+.alert {
+  border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px;
+  background: rgba(248,81,73,.09); border: 1px solid rgba(248,81,73,.3); color: #ffb3ae;
+}
+.alert.warn { background: rgba(210,153,34,.09); border-color: rgba(210,153,34,.32); color: #e8c46a; }
+.alert.ok { background: rgba(46,160,67,.09); border-color: rgba(46,160,67,.3); color: #7ee787; }
+.alert[hidden] { display: none; }
+
+details summary { cursor: pointer; color: var(--dim); font-size: 13px; padding: 4px 0; }
+details[open] summary { margin-bottom: 10px; }
+
+.diag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
+        color: var(--faint); line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+
+.flash {
+  font-size: 13px; color: var(--live); height: 18px; margin-bottom: 10px;
+  opacity: 0; transition: opacity .2s;
+}
+.flash.show { opacity: 1; }

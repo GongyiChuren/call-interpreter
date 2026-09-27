@@ -1,0 +1,28 @@
+[Unit]
+Description=Call Interpreter — real-time speech translation for phone calls
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+# APP_DIR is substituted at install time so the unit matches wherever you
+# actually installed the app (the default is /opt/call-interpreter).
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=__APP_DIR__
+ExecStart=__APP_DIR__/.venv/bin/python -m server.app --config __APP_DIR__/config.yaml
+Restart=on-failure
+RestartSec=3
+
+# Hardening: the service needs its own directory and outbound network, nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__APP_DIR__ /tmp
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

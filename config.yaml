@@ -1,0 +1,82 @@
+# Call Interpreter — configuration
+#
+# Everything here is read fresh on each new browser connection, so editing this
+# file takes effect on reload. No restart, no rebuild.
+
+server:
+  host: 0.0.0.0
+  port: 8790
+  # Shared secret in the URL: visit /?k=<token>. Leave empty to disable.
+  access_token: ""
+
+interpreter:
+  # fused  = one model call turns Chinese audio straight into English text (fast)
+  # cascade = STT -> MT -> TTS, each stage swappable independently
+  mode: fused
+
+  # ---- fused: audio in, translated text out ------------------------------
+  # Anything that accepts audio + a prompt. Gemini is the default because it is
+  # fast on audio and needs no separate STT subscription.
+  fused:
+    provider: gemini
+    api_key: env:GOOGLE_API_KEY
+    model: gemini-flash-lite-latest
+    timeout: 30
+
+  # ---- cascade: swap each stage for a different vendor -------------------
+  stt:
+    provider: gemini
+    api_key: env:GOOGLE_API_KEY
+    model: gemini-flash-lite-latest
+    timeout: 30
+  mt:
+    provider: gemini
+    api_key: env:GOOGLE_API_KEY
+    model: gemini-flash-lite-latest
+    timeout: 30
+
+  # ---- text-to-speech ----------------------------------------------------
+  # edge  = free, no key, 300+ voices (Microsoft Edge's public endpoint)
+  # openai = any OpenAI-compatible /audio/speech (OpenAI, SiliconFlow, new-api)
+  tts:
+    provider: edge
+    # provider: openai
+    # base_url: https://api.siliconflow.cn
+    # api_key: env:SILICONFLOW_API_KEY
+    # model: FunAudioLLM/CosyVoice2-0.5B
+
+  # Voice used when we speak English into the call. Male + British: a UK bank
+  # agent reacts badly to anything else.
+  out_voice:
+    provider: edge
+    voice: en-GB-RyanNeural        # alternatives: en-GB-ThomasNeural,
+                                   # en-US-AndrewMultilingualNeural
+  # Voice used if the other party's reply is read back to you aloud.
+  # Set provider: "" to keep it text-only.
+  in_voice:
+    provider: edge
+    voice: zh-CN-YunxiNeural       # male; alternatives: zh-CN-YunjianNeural
+
+# --------------------------------------------------------------------- SIP
+# The gateway this page registers to. Leave unset and the page still runs — you
+# can test the translation pipeline without placing a call.
+sip:
+  ws_url: ""          # wss://100.85.36.110:8099/ws   (per-instance WSS port)
+  uri: ""             # sip:webrtc@100.85.36.110:8099
+  user: ""
+  password: ""        # better: paste it into the page at connect time
+  display_name: Interpreter
+  register: true
+
+# ------------------------------------------------------------------ prompts
+prompts:
+  zh2en: |
+    You are interpreting a live telephone call in real time.
+    The speaker talks Mandarin Chinese; render it as natural spoken English.
+    Keep the register of a polite phone call. Output only the English, with no
+    quotes, no transliteration and no commentary.
+  en2zh: |
+    You are interpreting a live telephone call in real time.
+    The speaker talks English; render it as natural spoken Mandarin Chinese.
+    Use Simplified Chinese characters only (not Traditional).
+    Output only the Chinese, with no quotes and no commentary.

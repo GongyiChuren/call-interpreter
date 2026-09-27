@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>通话翻译 · Call Interpreter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>通话翻译</h1>
+    <span class="spacer"></span>
+    <span class="badge" id="badgeMode">—</span>
+    <span class="badge" id="badgeVoice">—</span>
+  </div>
+
+  <div class="alert" id="alertAi" hidden></div>
+  <div class="alert" id="alertSip" hidden></div>
+  <div class="flash" id="flash"></div>
+
+  <!-- ------------------------------------------------------------- 连接 -->
+  <div class="card">
+    <h2>第一步 · 连接</h2>
+    <div class="row">
+      <button class="btn" id="btnStart">开启麦克风</button>
+      <button class="btn" id="btnSip">连接网关</button>
+      <span class="spacer grow"></span>
+      <span class="status"><span class="dot" id="dotMic"></span> 麦克风 <b id="micState">未开启</b></span>
+      <span class="status"><span class="dot" id="dotSip"></span> 网关 <b id="sipState">未连接</b></span>
+      <span class="status"><span class="dot" id="dotAi"></span> 翻译</span>
+    </div>
+    <div class="row">
+      <div class="grow">
+        <label class="f" for="sipPass">SIP 密码（网关生成，仅本次会话使用）</label>
+        <input type="password" id="sipPass" autocomplete="off" placeholder="不填则用 config.yaml 里的值">
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------- 通话 -->
+  <div class="card" id="panelCall">
+    <h2>第二步 · 通话</h2>
+    <div class="row">
+      <div class="grow">
+        <label class="f" for="target">号码</label>
+        <input type="text" id="target" placeholder="例如 441733347007 或 03453000000">
+      </div>
+      <button class="btn primary" id="btnCall" style="margin-top:18px">拨打</button>
+      <button class="btn danger" id="btnHangup" style="margin-top:18px" disabled>挂断</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span class="status">状态 <b id="callState">空闲</b></span>
+      <span class="badge" id="whoHears"></span>
+    </div>
+    <div class="talkers" style="margin-top:14px">
+      <div class="talker">
+        <div class="who"><span class="dot" id="dotMe"></span> <b>你</b> · 说中文</div>
+        <div class="meter idle"><i id="meterMe"></i></div>
+      </div>
+      <div class="talker">
+        <div class="who"><span class="dot" id="dotOther"></span> <b>对方</b> · 说英文</div>
+        <div class="meter idle"><i id="meterOther"></i></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <label class="hint"><input type="checkbox" id="ptt" checked>
+        按住说话（推荐）：只有按住 <b>空格</b> 或下面按钮时才翻译你说的话</label>
+    </div>
+    <div class="row">
+      <button class="btn wide" id="btnTalk"
+              style="padding:14px;font-size:15px">按住说话</button>
+    </div>
+    <div class="row">
+      <label class="hint"><input type="checkbox" id="monitor" checked> 让你也听到合成的英文（确认对方听到的内容，不影响通话）</label>
+    </div>
+    <audio id="remoteAudio" autoplay></audio>
+  </div>
+
+  <!-- ------------------------------------------------------------- 字幕 -->
+  <div class="card">
+    <h2>对话内容</h2>
+    <div class="cap" id="cap"></div>
+  </div>
+
+  <!-- ------------------------------------------------------------- 备用 -->
+  <div class="card">
+    <details>
+      <summary>备用：不用麦克风，直接打字让对方听到</summary>
+      <div class="row" style="margin-top:10px">
+        <div class="grow">
+          <textarea id="typed" placeholder="打中文，服务器合成英文念给对方听"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <select id="typedDir" style="max-width:190px">
+          <option value="zh2en">中文 → 英文（给对方听）</option>
+          <option value="en2zh">英文 → 中文（给自己听）</option>
+        </select>
+        <button class="btn" id="btnSay">送入通话</button>
+        <span class="hint">通话中随时可用，适合说数字、拼名字。</span>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <div class="grow">
+          <label class="f" for="testEn">自检：让服务器念一句英文并译回中文</label>
+          <input type="text" id="testEn" placeholder="留空则用默认银行开场白">
+        </div>
+        <button class="btn" id="btnTest" style="margin-top:18px">试一下</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>诊断</summary>
+      <div class="diag" id="diag">—</div>
+    </details>
+  </div>
+
+</div>
+
+<script src="jssip.js"></script>
+<script src="worklets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
