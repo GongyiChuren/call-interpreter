@@ -87,12 +87,16 @@ async def read_http(connection, request):
                         b"ok\n")
 
     cfg = load_config()
-    if cfg.access_token and f"k={cfg.access_token}" not in request.path:
+    name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
+    # Only the entry point is gated. The scripts and stylesheet carry no secrets
+    # — the SIP credentials arrive over the WebSocket, which has its own token
+    # check — and gating them breaks the page, because a browser fetching
+    # /app.js does not carry the ?k=... that index.html was loaded with.
+    if name == "index.html" and cfg.access_token \
+            and f"k={cfg.access_token}" not in request.path:
         return Response(401, "Unauthorized",
                         Headers({"Content-Type": "text/plain; charset=utf-8"}),
                         "在网址后面加上 ?k=<口令> 再打开\n比如：/?k=你的口令\n".encode())
-
-    name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
     target = (WEB / name).resolve()
     # Never serve anything outside web/ (path traversal guard).
     if WEB.resolve() not in target.parents and target != WEB.resolve():

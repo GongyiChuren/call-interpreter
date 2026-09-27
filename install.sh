@@ -34,13 +34,23 @@ fi
 
 echo "==> installing to $APP_DIR"
 mkdir -p "$APP_DIR"
+KEEP_CONFIG=0
+if [ -f "$APP_DIR/config.yaml" ] && [ "${FORCE_CONFIG:-0}" != "1" ]; then
+  KEEP_CONFIG=1
+fi
 for item in server web tests config.yaml config.test.yaml README.md LICENSE check.py; do
   if [ -e "$SRC_DIR/$item" ]; then
+    if [ "$item" = "config.yaml" ] && [ "$KEEP_CONFIG" = "1" ]; then
+      continue      # an existing config holds the SIP password and API keys
+    fi
     cp -a "$SRC_DIR/$item" "$APP_DIR/"
   fi
 done
-# A trailing `cmd && cp` under `set -e` aborts the whole script when the last
-# item is missing, so every copy above is guarded with an explicit if.
+# NOTE: the loop above must not be written as `[ -e x ] && cp ...` — under
+# `set -e` a missing last item aborts the whole install.
+if [ "$KEEP_CONFIG" = "1" ]; then
+  echo "    kept existing $APP_DIR/config.yaml (FORCE_CONFIG=1 overwrites it)"
+fi
 
 echo "==> python environment"
 if [ ! -d "$APP_DIR/.venv" ]; then
@@ -50,13 +60,6 @@ fi
 "$APP_DIR/.venv/bin/pip" install --quiet --upgrade pip
 "$APP_DIR/.venv/bin/pip" install --quiet \
   'websockets>=13,<16' 'aiohttp>=3.9,<4' 'PyYAML>=6,<7' 'edge-tts>=7,<8'
-
-# Preserve an existing config: it holds the gateway password and API keys.
-if [ ! -f "$APP_DIR/config.yaml" ] || [ "$SRC_DIR/config.yaml" != "$APP_DIR/config.yaml" ]; then
-  if [ -f "$APP_DIR/config.yaml" ] && [ "${FORCE_CONFIG:-0}" != "1" ]; then
-    echo "    keeping existing $APP_DIR/config.yaml (set FORCE_CONFIG=1 to overwrite)"
-  fi
-fi
 
 if [ -n "$PORT" ]; then
   "$APP_DIR/.venv/bin/python" - "$APP_DIR/config.yaml" "$PORT" <<'PY'

@@ -17,7 +17,10 @@
   // ---------------------------------------------------------------- constants
   const CH_MIC = 0, CH_FAR = 1, CH_CALL = 2, CH_USER = 3;
   const $ = (id) => document.getElementById(id);
-  const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + location.pathname;
+  // Carry the query string onto the WebSocket: the token lives there, and the
+  // server rejects an unauthenticated socket with close code 4401.
+  const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
+    + location.host + location.pathname + location.search;
 
   // ----------------------------------------------------------------- state
   const S = {
