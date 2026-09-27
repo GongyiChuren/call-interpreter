@@ -45,6 +45,14 @@ WEB = HERE.parent / "web"
 CH_MIC, CH_FAR, CH_CALL, CH_USER = 0, 1, 2, 3
 MAX_UTTERANCE_BYTES = 16000 * 2 * 20        # hard stop at 20 s of buffered speech
 
+# Set by main(). Module-level so both the HTTP layer and the WebSocket handler
+# read the same config file, and so a reload picks up edits without a restart.
+CONFIG_PATH: str = ""
+
+
+def load_config() -> Config:
+    return Config.load(CONFIG_PATH or None)
+
 
 # --------------------------------------------------------------------- helpers
 def public_config(cfg: Config) -> dict:
@@ -61,7 +69,13 @@ def public_config(cfg: Config) -> dict:
 
 # ------------------------------------------------------------------- http layer
 async def read_http(connection, request):
-    """Serve the single-page app; let WebSocket upgrades through untouched."""
+    """Serve the single-page app; let WebSocket upgrades through untouched.
+
+    The page itself is gated by the same token as the WebSocket: without it,
+    anyone who can reach this port sees a working softphone wired to your SIP
+    credentials. Checked here (not only in the WS handler) because the config it
+    reads is the same one the page would receive.
+    """
     path = request.path.split("?", 1)[0]
     headers = {k.lower(): v for k, v in request.headers.items()}
     if "websocket" in headers.get("upgrade", "").lower():
@@ -71,6 +85,12 @@ async def read_http(connection, request):
         return Response(200, "OK",
                         Headers({"Content-Type": "text/plain; charset=utf-8"}),
                         b"ok\n")
+
+    cfg = load_config()
+    if cfg.access_token and f"k={cfg.access_token}" not in request.path:
+        return Response(401, "Unauthorized",
+                        Headers({"Content-Type": "text/plain; charset=utf-8"}),
+                        "在网址后面加上 ?k=<口令> 再打开\n比如：/?k=你的口令\n".encode())
 
     name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
     target = (WEB / name).resolve()
@@ -262,9 +282,6 @@ class Session:
 
 
 # ------------------------------------------------------------------ ws handler
-CONFIG_PATH: str = ""       # set by main(); reloaded per connection so edits apply live
-
-
 def token_ok(ws, cfg: Config) -> bool:
     if not cfg.access_token:
         return True
@@ -274,7 +291,7 @@ def token_ok(ws, cfg: Config) -> bool:
 
 
 async def handler(ws):
-    cfg = Config.load(CONFIG_PATH or None)   # reload: config edits apply on reconnect
+    cfg = load_config()          # reload: config edits apply on reconnect
     if not token_ok(ws, cfg):
         await ws.close(code=4401, reason="unauthorized")
         return

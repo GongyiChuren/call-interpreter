@@ -7,7 +7,7 @@ server:
   host: 0.0.0.0
   port: 8790
   # Shared secret in the URL: visit /?k=<token>. Leave empty to disable.
-  access_token: ""
+  access_token: "5f60ed1e7856"
 
 interpreter:
   # fused  = one model call turns Chinese audio straight into English text (fast)
