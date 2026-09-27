@@ -61,9 +61,12 @@ interpreter:
 # The gateway this page registers to. Leave unset and the page still runs — you
 # can test the translation pipeline without placing a call.
 sip:
-  ws_url: ""          # wss://100.85.36.110:8099/ws   (per-instance WSS port)
-  uri: ""             # sip:webrtc@100.85.36.110:8099
-  user: ""
+  # For an MDD / VoWiFi gateway (mdd-sim-gateway), each SIM line has its own
+  # WebRTC port. Line 1 -> 8089, line 2 -> 8099, line 3 -> 8109 (i.e. 8089+10*(n-1)).
+  # Read the exact URL from the gateway UI: SIM config -> softphone / SIP info.
+  ws_url: ""          # e.g. wss://192.168.1.4:8099/ws
+  uri: ""             # e.g. sip:webrtc@192.168.1.4:8099
+  user: ""            # usually "webrtc"
   password: ""        # better: paste it into the page at connect time
   display_name: Interpreter
   register: true
