@@ -49,6 +49,16 @@
     callActive: false,
     speaking: false,
     holding: false,
+
+    // Speaker mode: no SIP anywhere. The translated English leaves through the
+    // real speaker so the call that is already running — Google Voice in another
+    // tab, a softphone, a mobile on the desk — picks it up with its own
+    // microphone. The reverse direction rides on the same microphone: gate open
+    // means you are talking, gate closed means we are listening to them.
+    speakerMode: false,
+    speakerReady: false,
+    speakerGain: null,
+
     stats: { mic: 0, far: 0, en: 0, zh: 0, sent: 0, sentMic: 0, sentFar: 0,
              peak: 0, gated: 0 },
   };
@@ -166,6 +176,17 @@
       const d = e.data;
       S.stats.mic += d.pcm.byteLength;
       S.stats.peak = d.peak;
+      if (S.speakerMode) {
+        // Dual duty on one microphone. Holding the button = you are talking
+        // (Chinese, to be translated). Button released = listen: the phone /
+        // other tab is talking into our speaker, and this mic hears it.
+        // While our own English is still playing we stay deaf, or we would
+        // transcribe ourselves and answer our own sentence.
+        if (S.holding && !S.speakerReady) wsAudio(CH_MIC, d.pcm);
+        else if (!S.holding && !S.speakerReady) wsAudio(CH_FAR, d.pcm);
+        if (d.frames % 15 === 0) { setMeter('meterMe', d.peak); updateDiag(); }
+        return;
+      }
       // Push-to-talk: while the gate is closed we keep the track live (so the
       // call still carries your real voice for "yes"/"no") but we do NOT feed
       // the translator. Without this, room noise and the other party's own
@@ -207,8 +228,11 @@
     S.farNode.connect(sink).connect(S.callCtx.destination);
 
     // --- server -> call (translated English) ---
-    S.playNode = new AudioWorkletNode(S.callCtx, 'play', { numberOfOutputs: 1,
-                                                           outputChannelCount: [1] });
+    // TTS arrives at 24 kHz; the worklet resamples to the device rate, because
+    // an AudioWorkletNode does not do it for you (dropping that made the far end
+    // hear 1.84x-fast chipmunk English).
+    S.playNode = new AudioWorkletNode(S.callCtx, 'play',
+                                      CIWorklet.playOptions(CIWorklet.TTS_RATE));
     S.playDest = S.callCtx.createMediaStreamDestination();
     S.playNode.connect(S.playDest);
     // Keep the graph pulling even when nothing is queued.
@@ -233,12 +257,82 @@
     else if (S.userSink) { S.playNode.connect(S.userSink); }
   }
 
+  /* ---------------------------------------------------------- speaker mode
+   *
+   * For calls the browser cannot dial itself. Google Voice has no SIP and no
+   * API, and the MDD gateway only registers its own in-page softphone — so the
+   * one route that always works is the oldest one: hold the phone (or the other
+   * tab) next to the speaker and let its microphone hear us.
+   *
+   *   you speak Chinese -> server -> English -> this laptop's SPEAKER
+   *   the call's microphone picks it up (acoustic, no software in between)
+   *   the call's audio comes back through THIS microphone when the gate is shut
+   *
+   * Everything runs on one AudioContext: capture from the mic, play to the
+   * device's real destination. No SIP registration, no peer connection.
+   */
+  async function startSpeakerMode() {
+    if (S.speakerMode) return;
+    await startCapture();                       // shared mic capture path
+    if (!S.callCtx) {
+      S.callCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await CIWorklet.install(S.callCtx);
+    }
+    // Playback worklet -> the actual speakers (not a MediaStream destination).
+    S.playNode = new AudioWorkletNode(S.callCtx, 'play',
+                                      CIWorklet.playOptions(CIWorklet.TTS_RATE));
+    S.speakerGain = S.callCtx.createGain();
+    S.speakerGain.gain.value = 1;
+    S.playNode.connect(S.speakerGain).connect(S.callCtx.destination);
+    S.playNode.port.onmessage = (e) => {
+      // English finished: reopen the mic path so the reply can be transcribed.
+      if (e.data === 'drained') {
+        S.speakerReady = false;
+        if (S.speakerMode) {
+          $('whoHears').textContent = '✱ 你在说话（中文）';
+          $('whoHears').className = 'badge';
+        }
+      }
+    };
+    S.speakerMode = true;
+    $('panelCall').style.display = 'none';      // SIP panel is irrelevant here
+    $('speakerPanel').style.display = '';
+    $('callState').textContent = '外放模式';
+    say('alertAi', '外放模式已开：把手机/另一个窗口的通话对着这台电脑的音箱。'
+      + '按住说话时麦克风只收你；松手后麦克风自动去收对方的英文。', 'ok');
+    updateDiag();
+  }
+
+  function stopSpeakerMode() {
+    S.speakerMode = false;
+    S.speakerReady = false;
+    try { S.playNode && S.playNode.port.postMessage('stop'); } catch (e) {}
+    try { S.playNode && S.playNode.disconnect(); } catch (e) {}
+    try { S.speakerGain && S.speakerGain.disconnect(); } catch (e) {}
+    S.playNode = null; S.speakerGain = null;
+    try { S.callCtx && S.callCtx.close(); } catch (e) {}
+    S.callCtx = null;
+    stopCapture();
+    $('panelCall').style.display = '';
+    $('speakerPanel').style.display = 'none';
+    $('callState').textContent = '空闲';
+    say('alertAi', '', '');
+    updateDiag();
+  }
+
   function pushPlayback(pcmBytes, toCall) {
     if (!S.callCtx || !S.playNode) return;
     const view = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset,
                                 Math.floor(pcmBytes.byteLength / 2));
     const f32 = new Float32Array(view.length);
     for (let i = 0; i < view.length; i++) f32[i] = view[i] / 32768;
+    // In speaker mode there is no peer connection to swap a track on: the same
+    // worklet feeds the speaker instead, and `drained` flips the gate back.
+    if (toCall && S.speakerMode) {
+      if (!S.speakerReady) { S.speakerReady = true; $('whoHears').textContent = '✱ 正在对麦克风播放英文…'; $('whoHears').className = 'badge ok'; }
+      S.playNode.port.postMessage(f32.buffer, [f32.buffer]);
+      return;
+    }
     if (toCall && S.speaking !== true) { S.speaking = true; takeOverCall(); }
     S.playNode.port.postMessage(f32.buffer, [f32.buffer]);
   }
@@ -304,6 +398,36 @@
     else { wsSend({ t: 'flush' }); }   // close the utterance at once
   }
 
+  /* Speaker mode reuses the same button, but the gate means something else:
+   * pressing it declares "this is me talking"; releasing it hands the
+   * microphone over to the call's audio coming out of the speaker. */
+  function bindSpeakerGate() {
+    const b = $('btnTalkSpk');
+    if (!b) return;
+    ['mousedown', 'touchstart'].forEach((e) =>
+      b.addEventListener(e, (ev) => {
+        ev.preventDefault();
+        S.holding = true;
+        b.classList.add('active');
+        b.textContent = '正在说中文…（松开发送）';
+        $('whoHears').textContent = '✱ 你在说话（中文）';
+        $('whoHears').className = 'badge';
+        wsSend({ t: 'flush' });
+      }, { passive: false }));
+    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach((e) =>
+      b.addEventListener(e, () => {
+        if (!S.holding) return;
+        S.holding = false;
+        b.classList.remove('active');
+        b.textContent = '按住说话（说中文）';
+        wsSend({ t: 'flush' });
+        flash('松手了，现在听对方说');
+      }));
+    window.addEventListener('blur', () => {
+      if (S.holding) { S.holding = false; b.classList.remove('active'); b.textContent = '按住说话（说中文）'; }
+    });
+  }
+
   function bindTalkGate() {
     const b = $('btnTalk');
     if (!b) return;
@@ -340,6 +464,7 @@
       ' · WS=' + (S.wsReady ? '开' : '关') +
       ' · 注册=' + (S.registered ? '是' : '否') +
       ' · 通话=' + (S.callActive ? '是' : '否') +
+      ' · 模式=' + (S.speakerMode ? '外放' : '网关') +
       ' · 闸门=' + (gateOpen() ? '开' : '关');
   }
 
@@ -520,6 +645,23 @@
 
     $('monitor').onchange = (e) => setMonitor(e.target.checked);
     bindTalkGate();
+    bindSpeakerGate();
+
+    $('btnSpk').onclick = async () => {
+      $('btnSpk').disabled = true;
+      try {
+        if (S.speakerMode) { stopSpeakerMode(); $('btnSpk').textContent = '开启外放模式'; }
+        else { await startSpeakerMode(); $('btnSpk').textContent = '关闭外放模式'; }
+      } catch (e) {
+        say('alertAi', '外放模式启动失败：' + e.message, 'warn');
+      }
+      $('btnSpk').disabled = false;
+    };
+
+    $('spkVol').oninput = (e) => {
+      if (S.speakerGain) S.speakerGain.gain.value = parseFloat(e.target.value);
+      $('spkVolVal').textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
+    };
 
     $('btnSay').onclick = () => {
       const text = $('typed').value.trim();

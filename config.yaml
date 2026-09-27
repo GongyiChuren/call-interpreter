@@ -21,19 +21,19 @@ interpreter:
     provider: gemini
     api_key: env:GOOGLE_API_KEY
     model: gemini-flash-lite-latest
-    timeout: 30
+    timeout: 10
 
   # ---- cascade: swap each stage for a different vendor -------------------
   stt:
     provider: gemini
     api_key: env:GOOGLE_API_KEY
     model: gemini-flash-lite-latest
-    timeout: 30
+    timeout: 10
   mt:
     provider: gemini
     api_key: env:GOOGLE_API_KEY
     model: gemini-flash-lite-latest
-    timeout: 30
+    timeout: 10
 
   # ---- text-to-speech ----------------------------------------------------
   # edge  = free, no key, 300+ voices (Microsoft Edge's public endpoint)

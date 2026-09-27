@@ -26,6 +26,7 @@
     <div class="row">
       <button class="btn" id="btnStart">开启麦克风</button>
       <button class="btn" id="btnSip">连接网关</button>
+      <button class="btn primary" id="btnSpk">开启外放模式</button>
       <span class="spacer grow"></span>
       <span class="status"><span class="dot" id="dotMic"></span> 麦克风 <b id="micState">未开启</b></span>
       <span class="status"><span class="dot" id="dotSip"></span> 网关 <b id="sipState">未连接</b></span>
@@ -39,9 +40,32 @@
     </div>
   </div>
 
+  <!-- ------------------------------------------------------- 外放模式 -->
+  <div class="card" id="speakerPanel" style="display:none">
+    <h2>外放模式 · 不用网关</h2>
+    <div class="row">
+      <span class="status">状态 <b id="spkState">外放模式</b></span>
+      <span class="badge" id="spkWhoHears"></span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="hint">音量 <b id="spkVolVal">100%</b></label>
+      <input type="range" id="spkVol" min="0.2" max="1.5" step="0.05" value="1" style="max-width:220px">
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn wide primary" id="btnTalkSpk" style="padding:14px;font-size:15px">按住说话（说中文）</button>
+    </div>
+    <div class="row">
+      <label class="hint"><b>按住</b>说中文 → 松开后电脑自动把英文放出来，让对方的话筒收进去；
+        <b>松手期间</b>麦克风会收对方从音箱出来的英文并翻成中文字幕。</label>
+    </div>
+  </div>
+
   <!-- ------------------------------------------------------------- 通话 -->
   <div class="card" id="panelCall">
     <h2>第二步 · 通话</h2>
+    <div class="row">
+      <span class="hint">走网关（MDD / VoHFi）时用这里；不用网关就点上面那个「外放模式」。</span>
+    </div>
     <div class="row">
       <div class="grow">
         <label class="f" for="target">号码</label>
